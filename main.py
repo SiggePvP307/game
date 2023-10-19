@@ -1,40 +1,99 @@
 import pygame
 import random
-import math
-#import numpy as np
 from pygame import mixer
 
 pygame.init()
 
 clock = pygame.time.Clock()
 
-screen_width = 1600
-screen_height = 800
+screen_width = 1920
+screen_height = 1020
 
 screen = pygame.display.set_mode((screen_width, screen_height))
+
 
 font = pygame.font.Font(None, 54)
 GameLost_Font = pygame.font.Font(None, 300)
 GameWon_Font = pygame.font.Font(None, 300)
 bigfont = pygame.font.Font(None, 80)
-smallfont = pygame.font.Font(None, 45)
+smallfont = pygame.font.Font(None, 35)
 
 pygame.display.set_caption("DodgeMaster")
 
-#Global Variables
+# Global Variables
 white = 255, 255, 255
 gray = 169, 169, 169
+blue = 0, 191, 255
+black = 0, 0, 0
+lightred = 240, 128, 128
+limegreen = 50, 205, 50
+yelloworange = 255, 214, 51
 frame = 0
 running = True
 gameover = False
 
+
 def displayInfo():
-    length_text = font.render(f'Length: {player.length}', True, (255, 255, 255))
-    hp_text = font.render(f'Health: {player.hp}', True, (255, 0, 0))
+    length_text = font.render(
+        f'Length: {player.length}', True, (255, 255, 255))
+    hp_text = smallfont.render(f'HP', True, (255, 0, 0))
     score_text = font.render(f'Score: {player.score}', True, (255, 255, 255))
+    level_text = font.render(f'Level: {levelbar.level}', True, (blue))
+    xp_text = font.render(f'Experience: {levelbar.xp}', True, (black))
     screen.blit(length_text, (10, 10))
     screen.blit(hp_text, (10, 60))
-    screen.blit(score_text, (720, 10))
+    screen.blit(score_text, (1920/2 - 80, 10))
+    screen.blit(level_text, (1920/2 - 95, 900))
+    screen.blit(xp_text, (475 - 0, 945))
+
+
+class LevelBar():
+    def __init__(self):
+        self.x = 1920/2 - (400/2)
+        self.y = 950
+        self.w = 400
+        self.h = 25
+        self.xp = 0
+        self.level = 0
+        self.maxlevel = 100
+
+    def draw(self, surface):
+        level_ratio = self.xp / self.maxlevel
+        pygame.draw.rect(screen, black, pygame.Rect(
+            self.x, self.y, self.w, self.h))
+        pygame.draw.rect(screen, yelloworange, pygame.Rect(
+            self.x, self.y, self.w * level_ratio, self.h))
+
+    def levelUp(self, remainxp):
+        self.level += 1
+        self.xp = 0
+        self.xp += remainxp
+
+    def checkIfLevelUp(self):
+        if (self.xp >= 100):
+            self.levelUp(self.xp - self.maxlevel)
+
+
+class HealthBar():
+    def __init__(self):
+        self.x = 53
+        self.y = 59
+        self.w = 400
+        self.h = 25
+        self.hp = 10
+        self.maxhp = 10
+
+    def draw(self, surface):
+        hp_ratio = self.hp / self.maxhp
+        pygame.draw.rect(screen, lightred, pygame.Rect(
+            self.x, self.y, self.w, self.h))
+        pygame.draw.rect(screen, limegreen, pygame.Rect(
+            self.x, self.y, self.w * hp_ratio, self.h))
+
+    def checkIfHpEmpty(self):
+        if (self.xp >= 100):
+            self.levelUp(self.xp - self.maxlevel)
+
 
 class Player:
     def __init__(self):
@@ -46,10 +105,10 @@ class Player:
         self.move_left = False
         self.move_up = False
         self.move_down = False
-        self.speed = .5
+        self.speed = 0.7
         self.img = pygame.image.load("img/player.png")
-        self.score = 0
         self.count = 10
+        self.score = 0
         self.hp = 10
         self.length = 0
         self.hitbox = pygame.Rect(self.x, self.y, 32, 64)
@@ -63,28 +122,30 @@ class Player:
         screen.blit(self.img, (self.x, self.y))
 
     def checkIfOutOfBounds(self):
-        if self.x <= 0:
-            self.x = 0
-        elif self.x >= 1600 - 64:
-            self.x = 1600 - 64
-        if self.y <= 0:
-            self.y = 0
-        if self.y >= 800 - 64:
-            self.y = 800 - 64
-        
+        if self.x <= -16:
+            self.x = -16
+        elif self.x >= 1920 - 48:
+            self.x = 1920 - 48
+        if self.y <= 175:
+            self.y = 175
+        if self.y >= 816:
+            self.y = 816
+
+
 class Enemy:
-    enemyList = []
+    list = []
     speed = 0.45
     speedchange = 0.00002
+
     def updateSpeed():
-        for enemy in Enemy.enemyList:
+        for enemy in Enemy.list:
             Enemy.speed += Enemy.speedchange
 
     def __init__(self):
-            self.y = random.randint(0,800-32)
-            self.x = 1700
-            self.img = pygame.image.load("img/enemy.png")
-            self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
+        self.y = random.randint(175, 850)
+        self.x = 1920
+        self.img = pygame.image.load("img/enemy.png")
+        self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
 
     def display(self):
         screen.blit(self.img, (self.x, self.y))
@@ -93,72 +154,110 @@ class Enemy:
         self.x -= Enemy.speed
         self.hitbox.update(self.x, self.y, 32, 32)
 
-#Collectables
-class Apple:
-    appleList = []
+
+class Collectables:
+
     def __init__(self):
-        self.y = random.randint(0, screen_height - 50)
-        self.x = random.randint(0, screen_width - 300)
-        self.img = pygame.image.load("img/apple.png")
-        self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
+        self.apple = self.Apple()
+        self.goldenapple = self.Goldenapple()
+        self.tornado = self.Tornado()
 
-    def display(self):
-        screen.blit(self.img, (self.x, self.y))
+    class Apple:
+        list = []
 
-class Goldenapple:
-    goldenappleList = []
-    speed = 0.20
-    def __init__(self):
-        self.y = -80
-        self.x = random.randint(50, screen_width - 50)
-        self.img = pygame.image.load("img/goldenapple.png")
-        self.hitbox = pygame.Rect(self.x, self.y, 48, 48)
+        def __init__(self):
+            self.y = random.randint(175, 840)
+            self.x = random.randint(0, screen_width - 300)
+            self.img = pygame.image.load("img/apple.png")
+            self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
 
-    def display(self):
-        screen.blit(self.img, (self.x, self.y))
+        def display(self):
+            screen.blit(self.img, (self.x, self.y))
 
-    def updateY(self):
-        self.y += Goldenapple.speed
-        self.hitbox.update(self.x, self.y, 48, 48)
+        def playSound(self):
+            collision_sound = \
+                mixer.Sound("audio/applesound.mp3")
+            collision_sound.play()
 
-class Tornado:
-    tornadoList = []
-    def __init__(self):
-        self.y = random.randint(0, screen_height - 50)
-        self.x = random.randint(0, screen_width - 300)
-        self.img = pygame.image.load("img/tornado.png")
-        self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
+    class Goldenapple:
+        list = []
+        speed = 0.15
 
-    def display(self):
-        screen.blit(self.img, (self.x, self.y))
+        def __init__(self):
+            self.y = 175
+            self.x = random.randint(200, screen_width - 50)
+            self.img = pygame.image.load("img/goldenapple.png")
+            self.hitbox = pygame.Rect(self.x, self.y, 48, 48)
+
+        def display(self):
+            screen.blit(self.img, (self.x, self.y))
+
+        def updateY(self):
+            self.y += collectables.goldenapple.speed
+            self.hitbox.update(self.x, self.y, 48, 48)
+
+        def playSound(self):
+            collision_sound = \
+                mixer.Sound("audio/goldenapplesound.mp3")
+            collision_sound.play()
+
+    class Tornado:
+        list = []
+
+        def __init__(self):
+            self.y = random.randint(250, 850)
+            self.x = random.randint(0, screen_width - 300)
+            self.img = pygame.image.load("img/tornado.png")
+            self.hitbox = pygame.Rect(self.x, self.y, 32, 32)
+
+        def display(self):
+            screen.blit(self.img, (self.x, self.y))
+
+        def playSound(self):
+            collision_sound = \
+                mixer.Sound("audio/goldenapplesound.mp3")
+            collision_sound.play()
 
 
-goldenapple = Goldenapple()
-tornado = Tornado()
+collectables = Collectables()
 player = Player()
+levelbar = LevelBar()
+healthbar = HealthBar()
 
+# First Append to start showing
 
-Apple.appleList.append(Apple())
-Apple.appleList.append(Apple())
-Apple.appleList.append(Apple())
-
+check = "false"
 while running:
-    
-    if(frame % 80 == 0):
-        if(gameover != True):
-            Enemy.enemyList.append(Enemy())
+    screen.fill(gray)
+
+    # Black bars
+    pygame.draw.rect(screen, black, pygame.Rect(0, 165, 1920, 10))
+    pygame.draw.rect(screen, black, pygame.Rect(0, 880, 1920, 10))
+
+    # Level
+    levelbar.draw(screen)
+    healthbar.draw(screen)
+    levelbar.checkIfLevelUp()
+
+    # HP
+
+    if (frame == 3000):
+        collectables.apple.list.append(collectables.Apple())
+        collectables.apple.list.append(collectables.Apple())
+        collectables.apple.list.append(collectables.Apple())
+        collectables.apple.list.append(collectables.Apple())
+        collectables.apple.list.append(collectables.Apple())
+
+    if (frame % 80 == 0):
+        if (gameover != True):
+            Enemy.list.append(Enemy())
             Enemy.updateSpeed()
             player.length += 1
-    if(frame % 5000 == 0 and Goldenapple.goldenappleList.index != 0):
-        if(gameover != True):
-            goldenapple.updateY()
-            Goldenapple.goldenappleList.append(Goldenapple())
+    if (frame % 5000 == 0):
+        collectables.Goldenapple().list.append(collectables.Goldenapple())
 
-    if(frame % 20000 == 0):
-        Tornado.tornadoList.append(Tornado())
-
-    screen.fill(gray)
-            
+    if (frame % 20000 == 0):
+        collectables.tornado.list.append(collectables.tornado)
 
     for event in pygame.event.get():
 
@@ -198,93 +297,70 @@ while running:
     if not player.move_up and not player.move_down:
         player.y_change = 0
 
-    #goldenapple.display()
-    for apple in Apple.appleList:
-        apple.display()
-    
-
     player.updatePosition()
     player.checkIfOutOfBounds()
     player.display()
     displayInfo()
 
-    #collision Enemy
-    for enemy in Enemy.enemyList:
-        if(player.hitbox.colliderect(enemy.hitbox)):
-            Enemy.enemyList.pop(Enemy.enemyList.index(enemy))
-            player.hp -= 1
+    # collision Enemy
+    for enemy in Enemy.list:
+        if (player.hitbox.colliderect(enemy.hitbox)):
+            Enemy.list.pop(Enemy.list.index(enemy))
+            healthbar.hp -= 1
             collision_sound = \
-            mixer.Sound \
-            ("audio\\splat.mp3")
+                mixer.Sound("audio\\splat.mp3")
             collision_sound.play()
 
-            if(player.hp <= 0):
+            if (healthbar.hp <= 0):
                 gameover = True
-                Enemy.enemyList.clear()
+                Enemy.list.clear()
                 collision_sound = \
-                mixer.Sound \
-                ("audio\\loser.mp3")
+                    mixer.Sound("audio\\loser.mp3")
                 collision_sound.play()
-    
 
-        if(enemy.x <= -100):
-            Enemy.enemyList.pop(Enemy.enemyList.index(enemy))
+        if (enemy.x <= -100):
+            Enemy.list.pop(Enemy.list.index(enemy))
         enemy.display()
         enemy.updateX()
 
-    #collision Apple
-    for apple in Apple.appleList:
-        if(player.hitbox.colliderect(apple.hitbox)):
-            Apple.appleList.pop(Apple.appleList.index(apple))
-            Apple.appleList.append(Apple())
+    # collision Apple
+    for apple in collectables.apple.list:
+        if (player.hitbox.colliderect(apple.hitbox)):
+            collectables.apple.list.pop(collectables.apple.list.index(apple))
+            collectables.apple.list.append(collectables.Apple())
             player.score += 1
+            levelbar.xp += 2
 
-            collision_sound = \
-            mixer.Sound \
-                ("audio/applesound.mp3")
-            collision_sound.play()
+            collectables.apple.playSound()
 
-            # +1
-            if(player.score == 5):
-                player.hp += 1
-            elif(player.score == 10):
-                player.hp += 1
+        apple.display()
 
-    #collision Goldenapple
-    for goldenapple in Goldenapple.goldenappleList:
-        if(player.hitbox.colliderect(goldenapple.hitbox)):
-            Goldenapple.goldenappleList.pop(Goldenapple.goldenappleList.index(goldenapple))
+    # collision Goldenapple
+    for goldenapple in collectables.goldenapple.list:
+        if (player.hitbox.colliderect(goldenapple.hitbox)):
+            collectables.goldenapple.list.pop(
+                collectables.goldenapple.list.index(goldenapple))
             player.score += 2
+            levelbar.xp += 10
 
-            collision_sound = \
-            mixer.Sound \
-                ("audio/goldenapplesound.mp3")
-            collision_sound.play()
+            collectables.goldenapple.playSound()
 
-
-            # +1 health when scoring
-            if(player.score == 5):
-                player.hp += 1
-            elif(player.score == 10):
-                player.hp += 1
-            
-            #pop golden apple
-        if(goldenapple.y <= -100):
-            Goldenapple.goldenappleList.pop(Goldenapple.goldenappleList.index(goldenapple))
+            # pop golden apple
+        if (goldenapple.y > 837):
+            collectables.goldenapple.list.pop(
+                collectables.goldenapple.list.index(goldenapple))
         goldenapple.display()
         goldenapple.updateY()
 
-    #collision Tornado
-    for tornado in Tornado.tornadoList:
-        if(player.hitbox.colliderect(tornado.hitbox)):
-            Tornado.tornadoList.pop(Tornado.tornadoList.index(tornado))
-            Enemy.enemyList.clear()
+    # collision Tornado
+    for tornado in collectables.tornado.list:
+        if (player.hitbox.colliderect(tornado.hitbox)):
+            collectables.tornado.list.pop(
+                collectables.tornado.list.index(tornado))
 
-            collision_sound = \
-            mixer.Sound \
-                ("audio/goldenapplesound.mp3")
-            collision_sound.play()
-            
+            Enemy.list.clear()
+            collectables.tornado.playSound()
+
         tornado.display()
 
     frame += 1
